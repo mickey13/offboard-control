@@ -1,0 +1,4 @@
+string mode
+bool en_route_to_waypoint
+geometry_msgs/Pose global_waypoint
+geometry_msgs/Pose local_waypoint

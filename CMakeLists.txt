@@ -10,6 +10,10 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
+  std_srvs
+  geometry_msgs
+  mavros_msgs
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -46,9 +50,10 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-# )
+add_message_files(
+  FILES
+  StateMsg.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -65,10 +70,13 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  std_srvs
+  geometry_msgs
+  mavros_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -102,7 +110,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES offboard_control
-  CATKIN_DEPENDS roscpp std_msgs
+  CATKIN_DEPENDS roscpp std_msgs std_srvs geometry_msgs mavros_msgs
 #  DEPENDS system_lib
 )
 
@@ -133,6 +141,9 @@ include_directories(
 add_executable(
   offboard_control
   src/offboard_control_node.cpp
+  src/offboard_control.cpp
+  src/mavros_adapter.cpp
+  src/landing_gear.cpp
 )
 
 ## Rename C++ executable without prefix

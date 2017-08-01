@@ -1,5 +1,5 @@
 #include <offboard_control/offboard_control.h>
-#include <offboard_control/StateMsg.h>
+#include <offboard_control/State.h>
 
 #include <std_msgs/String.h>
 #include <sstream>
@@ -40,8 +40,8 @@ OffboardControl::OffboardControl(
   this->mGripperSubscriber = this->mNodeHandle->subscribe<std_msgs::Bool>(TOPIC_CONTROL_GRIPPER, QUEUE_SIZE, &OffboardControl::gripperCallback, this);
   this->mWaypointArrivedPublisher = this->mNodeHandle->advertise<std_msgs::Empty>(TOPIC_CONTROL_WAYPOINT_ARRIVED, QUEUE_SIZE);
   this->mVelocityAlertPublisher = this->mNodeHandle->advertise<geometry_msgs::Pose>(TOPIC_CONTROL_VELOCITY_ALERT, QUEUE_SIZE);
-  this->mStatePublisher = this->mNodeHandle->advertise<offboard_control::StateMsg>(TOPIC_CONTROL_STATE, QUEUE_SIZE);
   this->mLoggerPublisher = this->mNodeHandle->advertise<std_msgs::String>(TOPIC_LOGGER, QUEUE_SIZE);
+  this->mStatePublisher = this->mNodeHandle->advertise<offboard_control::State>("offboard_control/state", QUEUE_SIZE);
   this->mEnRouteToWaypoint = false;
   this->mReceivedOdometry = false;
   this->initializeParameters();
@@ -181,7 +181,7 @@ std::string OffboardControl::getNamespace() const {
 }
 
 void OffboardControl::publishState() const {
-  offboard_control::StateMsg stateMsg;
+  offboard_control::State stateMsg;
   stateMsg.mode = this->mMavrosAdapter.getActionString();
   stateMsg.en_route_to_waypoint = this->mEnRouteToWaypoint;
   stateMsg.global_waypoint = this->mGlobalWaypoint;

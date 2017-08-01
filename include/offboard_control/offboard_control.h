@@ -2,6 +2,7 @@
 #define OFFBOARD_CONTROL_H
 
 #include <offboard_control/mavros_adapter.h>
+#include <offboard_control/Pose.h>
 
 #include <ros/ros.h>
 #include <std_msgs/Empty.h>
@@ -32,7 +33,7 @@ private:
   bool takeoffService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
   bool landService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
   bool rtlService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
-  void waypointCallback(const geometry_msgs::Pose::ConstPtr& msg);
+  void waypointCallback(const offboard_control::Pose::ConstPtr& msg);
   void velocityCallback(const geometry_msgs::Twist::ConstPtr& msg);
   void resumeMissionCallback(const std_msgs::Empty::ConstPtr& msg);
   void stopCallback(const std_msgs::Empty::ConstPtr& msg);

@@ -2,6 +2,7 @@
 #include <offboard_control/State.h>
 
 #include <std_msgs/String.h>
+#include <tf/transform_datatypes.h>
 #include <sstream>
 
 static const int QUEUE_SIZE = 1;
@@ -20,7 +21,7 @@ OffboardControl::OffboardControl(
   this->mTakeoffService = this->mNodeHandle->advertiseService("offboard_control/takeoff", &OffboardControl::takeoffService, this);
   this->mLandService = this->mNodeHandle->advertiseService("offboard_control/land", &OffboardControl::landService, this);
   this->mRtlService = this->mNodeHandle->advertiseService("offboard_control/rtl", &OffboardControl::rtlService, this);
-  this->mWaypointSubscriber = this->mNodeHandle->subscribe<geometry_msgs::Pose>("offboard_control/waypoint", QUEUE_SIZE, &OffboardControl::waypointCallback, this);
+  this->mWaypointSubscriber = this->mNodeHandle->subscribe<offboard_control::Pose>("offboard_control/waypoint", QUEUE_SIZE, &OffboardControl::waypointCallback, this);
   this->mVelocitySubscriber = this->mNodeHandle->subscribe<geometry_msgs::Twist>("offboard_control/velocity", QUEUE_SIZE, &OffboardControl::velocityCallback, this);
   this->mResumeMissionSubscriber = this->mNodeHandle->subscribe<std_msgs::Empty>("offboard_control/resume_mission", QUEUE_SIZE, &OffboardControl::resumeMissionCallback, this);
   this->mStopSubscriber = this->mNodeHandle->subscribe<std_msgs::Empty>("offboard_control/stop", QUEUE_SIZE, &OffboardControl::stopCallback, this);
@@ -103,8 +104,11 @@ bool OffboardControl::rtlService(std_srvs::Trigger::Request& request, std_srvs::
   return true;
 }
 
-void OffboardControl::waypointCallback(const geometry_msgs::Pose::ConstPtr& msg) {
-  this->setWaypoint(*msg);
+void OffboardControl::waypointCallback(const offboard_control::Pose::ConstPtr& msg) {
+  geometry_msgs::Pose waypoint;
+  waypoint.position = msg->position;
+  tf::quaternionTFToMsg(tf::createQuaternionFromRPY(0.0, 0.0, msg->yaw), waypoint.orientation);
+  this->setWaypoint(waypoint);
 }
 
 void OffboardControl::velocityCallback(const geometry_msgs::Twist::ConstPtr& msg) {

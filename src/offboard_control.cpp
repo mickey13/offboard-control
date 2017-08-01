@@ -5,18 +5,6 @@
 #include <sstream>
 
 static const int QUEUE_SIZE = 1;
-static const std::string TOPIC_CONTROL_TAKEOFF = "offboard_control/takeoff";
-static const std::string TOPIC_CONTROL_LAND = "offboard_control/land";
-static const std::string TOPIC_CONTROL_RTL = "offboard_control/rtl";
-static const std::string TOPIC_CONTROL_WAYPOINT = "offboard_control/waypoint";
-static const std::string TOPIC_CONTROL_WAYPOINT_ARRIVED = "offboard_control/waypoint/arrived";
-static const std::string TOPIC_CONTROL_VELOCITY = "offboard_control/velocity";
-static const std::string TOPIC_CONTROL_VELOCITY_ALERT = "offboard_control/velocity/alert";
-static const std::string TOPIC_CONTROL_RESUME_MISSION = "offboard_control/resume_mission";
-static const std::string TOPIC_CONTROL_STOP = "offboard_control/stop";
-static const std::string TOPIC_CONTROL_STATE = "offboard_control/state";
-static const std::string TOPIC_CONTROL_GRIPPER = "offboard_control/gripper";
-static const std::string TOPIC_LOGGER = "/ocs/log_message";
 static const float TAKEOFF_HEIGHT = 10.0;
 static const float CLOSE_ENOUGH = 2.0;
 static const float VELOCITY_ALERT_HEIGHT = 3.0;
@@ -29,19 +17,20 @@ OffboardControl::OffboardControl(
   MavrosAdapter::Autopilot autopilot
 ) : mMavrosAdapter(rosNode, rosRate, autopilot, TAKEOFF_HEIGHT, this, &OffboardControl::armingEvent, &OffboardControl::localPoseEvent) {
   this->mNodeHandle = &rosNode;
-  this->mTakeoffService = this->mNodeHandle->advertiseService(TOPIC_CONTROL_TAKEOFF, &OffboardControl::takeoffService, this);
-  this->mLandService = this->mNodeHandle->advertiseService(TOPIC_CONTROL_LAND, &OffboardControl::landService, this);
-  this->mRtlService = this->mNodeHandle->advertiseService(TOPIC_CONTROL_RTL, &OffboardControl::rtlService, this);
-  this->mWaypointSubscriber = this->mNodeHandle->subscribe<geometry_msgs::Pose>(TOPIC_CONTROL_WAYPOINT, QUEUE_SIZE, &OffboardControl::waypointCallback, this);
-  this->mVelocitySubscriber = this->mNodeHandle->subscribe<geometry_msgs::Twist>(TOPIC_CONTROL_VELOCITY, QUEUE_SIZE, &OffboardControl::velocityCallback, this);
-  this->mResumeMissionSubscriber = this->mNodeHandle->subscribe<std_msgs::Empty>(TOPIC_CONTROL_RESUME_MISSION, QUEUE_SIZE, &OffboardControl::resumeMissionCallback, this);
-  this->mStopSubscriber = this->mNodeHandle->subscribe<std_msgs::Empty>(TOPIC_CONTROL_STOP, QUEUE_SIZE, &OffboardControl::stopCallback, this);
+  this->mTakeoffService = this->mNodeHandle->advertiseService("offboard_control/takeoff", &OffboardControl::takeoffService, this);
+  this->mLandService = this->mNodeHandle->advertiseService("offboard_control/land", &OffboardControl::landService, this);
+  this->mRtlService = this->mNodeHandle->advertiseService("offboard_control/rtl", &OffboardControl::rtlService, this);
+  this->mWaypointSubscriber = this->mNodeHandle->subscribe<geometry_msgs::Pose>("offboard_control/waypoint", QUEUE_SIZE, &OffboardControl::waypointCallback, this);
+  this->mVelocitySubscriber = this->mNodeHandle->subscribe<geometry_msgs::Twist>("offboard_control/velocity", QUEUE_SIZE, &OffboardControl::velocityCallback, this);
+  this->mResumeMissionSubscriber = this->mNodeHandle->subscribe<std_msgs::Empty>("offboard_control/resume_mission", QUEUE_SIZE, &OffboardControl::resumeMissionCallback, this);
+  this->mStopSubscriber = this->mNodeHandle->subscribe<std_msgs::Empty>("offboard_control/stop", QUEUE_SIZE, &OffboardControl::stopCallback, this);
   this->mOdometrySubscriber = this->mNodeHandle->subscribe<nav_msgs::Odometry>(odometryTopic, QUEUE_SIZE, &OffboardControl::odometryCallback, this);
-  this->mGripperSubscriber = this->mNodeHandle->subscribe<std_msgs::Bool>(TOPIC_CONTROL_GRIPPER, QUEUE_SIZE, &OffboardControl::gripperCallback, this);
-  this->mWaypointArrivedPublisher = this->mNodeHandle->advertise<std_msgs::Empty>(TOPIC_CONTROL_WAYPOINT_ARRIVED, QUEUE_SIZE);
-  this->mVelocityAlertPublisher = this->mNodeHandle->advertise<geometry_msgs::Pose>(TOPIC_CONTROL_VELOCITY_ALERT, QUEUE_SIZE);
-  this->mLoggerPublisher = this->mNodeHandle->advertise<std_msgs::String>(TOPIC_LOGGER, QUEUE_SIZE);
+  this->mGripperSubscriber = this->mNodeHandle->subscribe<std_msgs::Bool>("offboard_control/gripper", QUEUE_SIZE, &OffboardControl::gripperCallback, this);
+  this->mTakeoffCompletedPublisher = this->mNodeHandle->advertise<std_msgs::Empty>("offboard_control/takeoff/completed", QUEUE_SIZE);
+  this->mWaypointArrivedPublisher = this->mNodeHandle->advertise<std_msgs::Empty>("offboard_control/waypoint/arrived", QUEUE_SIZE);
+  this->mVelocityAlertPublisher = this->mNodeHandle->advertise<geometry_msgs::Pose>("offboard_control/velocity/alert", QUEUE_SIZE);
   this->mStatePublisher = this->mNodeHandle->advertise<offboard_control::State>("offboard_control/state", QUEUE_SIZE);
+  this->mLoggerPublisher = this->mNodeHandle->advertise<std_msgs::String>("offboard_control/log", QUEUE_SIZE);
   this->mEnRouteToWaypoint = false;
   this->mReceivedOdometry = false;
   this->initializeParameters();
@@ -86,7 +75,7 @@ void OffboardControl::initializeParameters() {
 bool OffboardControl::takeoffService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response) {
   if (this->mReceivedOdometry) {
     std::stringstream ss;
-    ss << "Takeing off to " << TAKEOFF_HEIGHT << " meters.";
+    ss << "Taking off to " << TAKEOFF_HEIGHT << " meters.";
     response.success = true;
     response.message = ss.str();
     this->mMavrosAdapter.executeTakeoffSequence(this->mAngleOffset);

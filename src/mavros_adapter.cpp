@@ -42,7 +42,7 @@ MavrosAdapter::MavrosAdapter(
   Autopilot autopilot,
   float takeoffHeight,
   OffboardControl* uavControl,
-  void (OffboardControl::*armingCallback)(),
+  void (OffboardControl::*eventCallback)(),
   void (OffboardControl::*localPoseCallback)(geometry_msgs::Pose pose)
 ) : mRosRate(rosRate),
     TAKEOFF_HEIGHT(takeoffHeight) {
@@ -70,7 +70,7 @@ MavrosAdapter::MavrosAdapter(
   this->mFixedYaw = 0.0;
   this->configureAutopilot(autopilot);
   this->mOffboardControl = uavControl;
-  this->mArmingCallback = armingCallback;
+  this->mEventCallback = eventCallback;
   this->mLocalPoseCallback = localPoseCallback;
   this->mLandingGear.initialize(*(this->mNodeHandle), this->mRcOverridePublisher, this->mLoggerPublisher);
 }
@@ -275,7 +275,7 @@ void MavrosAdapter::armFlightController() {
     armCommand.request.value = true;
     if (this->mArmingService.call(armCommand)) {
       this->logMessage("Vehicle arming.");
-      (*this->mOffboardControl.*this->mArmingCallback)();
+      (*this->mOffboardControl.*this->mEventCallback)();
     }
     this->mLastRequest = ros::Time::now();
   }

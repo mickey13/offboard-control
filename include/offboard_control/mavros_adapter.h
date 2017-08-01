@@ -115,7 +115,7 @@ private:
   std::string mFcuModeLand;
   std::string mFcuModeRtl;
   OffboardControl* mOffboardControl;
-  void (OffboardControl::*mArmingCallback)();
+  void (OffboardControl::*mEventCallback)();
   void (OffboardControl::*mLocalPoseCallback)(geometry_msgs::Pose pose);
 };
 

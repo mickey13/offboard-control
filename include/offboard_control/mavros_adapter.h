@@ -2,6 +2,7 @@
 #define MAVROS_ADAPTER_H
 
 #include <offboard_control/landing_gear.h>
+#include <offboard_control/gimbal.h>
 
 #include <ros/ros.h>
 #include <mavros_msgs/State.h>
@@ -93,6 +94,7 @@ private:
   ros::ServiceClient mSetStreamRateService;
 
   LandingGear mLandingGear;
+  Gimbal mGimbal;
   std::thread* mMavrosThread;
   ros::NodeHandle* mNodeHandle;
   ros::Rate mRosRate;

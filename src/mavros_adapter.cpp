@@ -45,6 +45,7 @@ MavrosAdapter::MavrosAdapter(
   void (OffboardControl::*eventCallback)(),
   void (OffboardControl::*localPoseCallback)(geometry_msgs::Pose pose)
 ) : mRosRate(rosRate),
+    mGimbal(rosNode),
     TAKEOFF_HEIGHT(takeoffHeight) {
   this->mNodeHandle = &rosNode;
   this->mStateSubscriber = this->mNodeHandle->subscribe<mavros_msgs::State>(TOPIC_MAVROS_STATE, QUEUE_SIZE, &MavrosAdapter::stateCallback, this);
@@ -86,6 +87,7 @@ void MavrosAdapter::initialize() {
   this->connectToFlightController();
   this->setRcChannelStreamRate();
   this->mMavrosThread = new std::thread(&MavrosAdapter::threadLoop, this, this->mRosRate);
+  this->mGimbal.initialize();
 }
 
 void MavrosAdapter::executeTakeoffSequence(float yaw) {
@@ -218,6 +220,7 @@ void MavrosAdapter::localPositionCallback(const geometry_msgs::PoseStamped::Cons
   if (!this->mCurrentState.armed) {
     this->mPreArmPose = this->mLocalPose;
   }
+  this->mGimbal.updateRobotPose(this->mLocalPose);
   (*this->mOffboardControl.*this->mLocalPoseCallback)(this->mLocalPose);
 }
 

@@ -145,6 +145,7 @@ add_executable(
   src/offboard_control.cpp
   src/mavros_adapter.cpp
   src/landing_gear.cpp
+  src/gimbal.cpp
 )
 
 ## Rename C++ executable without prefix

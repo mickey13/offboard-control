@@ -56,6 +56,7 @@ private:
   ros::Subscriber mStopSubscriber;
   ros::Subscriber mOdometrySubscriber;
   ros::Subscriber mGripperSubscriber;
+  ros::Publisher mTakeoffCompletedPublisher;
   ros::Publisher mWaypointArrivedPublisher;
   ros::Publisher mVelocityAlertPublisher;
   ros::Publisher mStatePublisher;

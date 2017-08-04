@@ -13,6 +13,7 @@ public:
   ~Gimbal();
   void initialize();
   void updateRobotPose(const geometry_msgs::Pose& pose);
+  geometry_msgs::Vector3 getOrientation() const;
 
 private:
   Gimbal();

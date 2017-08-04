@@ -2,6 +2,7 @@
 #include <offboard_control/State.h>
 
 #include <std_msgs/String.h>
+#include <std_msgs/UInt16.h>
 #include <tf/transform_datatypes.h>
 #include <sstream>
 
@@ -10,13 +11,17 @@ static const float TAKEOFF_HEIGHT = 10.0;
 static const float CLOSE_ENOUGH = 2.0;
 static const float VELOCITY_ALERT_HEIGHT = 3.0;
 static const float PI = 3.14159265359;
+static const unsigned int CONTROL_EVENT_TAKEOFF_COMPLETE = 0;
+static const unsigned int CONTROL_EVENT_WAYPOINT_COMPLETE = 1;
+static const unsigned int CONTROL_EVENT_LAND_COMPLETE = 2;
 
 OffboardControl::OffboardControl(
   ros::NodeHandle &rosNode,
   ros::Rate rosRate,
   std::string odometryTopic,
   MavrosAdapter::Autopilot autopilot
-) : mMavrosAdapter(rosNode, rosRate, autopilot, TAKEOFF_HEIGHT, this, &OffboardControl::armingEvent, &OffboardControl::localPoseEvent) {
+) : mMavrosAdapter(rosNode, rosRate, autopilot, TAKEOFF_HEIGHT, this, &OffboardControl::armingEvent, &OffboardControl::localPoseEvent),
+    mGimbal(rosNode) {
   this->mNodeHandle = &rosNode;
   this->mTakeoffService = this->mNodeHandle->advertiseService("offboard_control/takeoff", &OffboardControl::takeoffService, this);
   this->mLandService = this->mNodeHandle->advertiseService("offboard_control/land", &OffboardControl::landService, this);
@@ -27,31 +32,32 @@ OffboardControl::OffboardControl(
   this->mStopSubscriber = this->mNodeHandle->subscribe<std_msgs::Empty>("offboard_control/stop", QUEUE_SIZE, &OffboardControl::stopCallback, this);
   this->mOdometrySubscriber = this->mNodeHandle->subscribe<nav_msgs::Odometry>(odometryTopic, QUEUE_SIZE, &OffboardControl::odometryCallback, this);
   this->mGripperSubscriber = this->mNodeHandle->subscribe<std_msgs::Bool>("offboard_control/gripper", QUEUE_SIZE, &OffboardControl::gripperCallback, this);
-  this->mTakeoffCompletedPublisher = this->mNodeHandle->advertise<std_msgs::Empty>("offboard_control/takeoff/completed", QUEUE_SIZE);
-  this->mWaypointArrivedPublisher = this->mNodeHandle->advertise<std_msgs::Empty>("offboard_control/waypoint/arrived", QUEUE_SIZE);
+  this->mEventPublisher = this->mNodeHandle->advertise<std_msgs::UInt16>("offboard_control/event", QUEUE_SIZE);
   this->mVelocityAlertPublisher = this->mNodeHandle->advertise<geometry_msgs::Pose>("offboard_control/velocity/alert", QUEUE_SIZE);
   this->mStatePublisher = this->mNodeHandle->advertise<offboard_control::State>("offboard_control/state", QUEUE_SIZE);
   this->mLoggerPublisher = this->mNodeHandle->advertise<std_msgs::String>("offboard_control/log", QUEUE_SIZE);
-  this->mEnRouteToWaypoint = false;
+  this->mState = State::IDLE;
   this->mReceivedOdometry = false;
   this->initializeParameters();
 }
 
 void OffboardControl::initializeMavros() {
   this->mMavrosAdapter.initialize();
+  this->mGimbal.initialize();
   this->logMessage("Initialized");
 }
 
 void OffboardControl::armingEvent() {
-  this->mGlobalWaypoint = this->mCurrentOdometry.pose.pose;
-  this->mGlobalWaypoint.position.z += TAKEOFF_HEIGHT;
-  this->setWaypoint(this->mGlobalWaypoint);
+  this->mLocalWaypoint = this->mCurrentOdometry.pose.pose;
+  this->mLocalWaypoint.position.z += TAKEOFF_HEIGHT;
+  this->mMavrosAdapter.executeMoveWithWaypoint(this->mLocalWaypoint);
   std::stringstream ss;
   ss << "Armed at (" << this->mCurrentOdometry.pose.pose.position.x << ", " << this->mCurrentOdometry.pose.pose.position.y << ", " << this->mCurrentOdometry.pose.pose.position.z << ")";
   this->logMessage(ss.str());
 }
 
 void OffboardControl::localPoseEvent(geometry_msgs::Pose pose) {
+  this->mGimbal.updateRobotPose(pose);
   this->publishState();
 }
 
@@ -80,6 +86,7 @@ bool OffboardControl::takeoffService(std_srvs::Trigger::Request& request, std_sr
     response.success = true;
     response.message = ss.str();
     this->mMavrosAdapter.executeTakeoffSequence(this->mAngleOffset);
+    this->mState = State::TAKEOFF;
   }
   else {
     response.success = false;
@@ -105,10 +112,10 @@ bool OffboardControl::rtlService(std_srvs::Trigger::Request& request, std_srvs::
 }
 
 void OffboardControl::waypointCallback(const offboard_control::Pose::ConstPtr& msg) {
-  geometry_msgs::Pose waypoint;
-  waypoint.position = msg->position;
-  tf::quaternionTFToMsg(tf::createQuaternionFromRPY(0.0, 0.0, msg->yaw), waypoint.orientation);
-  this->setWaypoint(waypoint);
+  this->mLocalWaypoint.position = msg->position;
+  tf::quaternionTFToMsg(tf::createQuaternionFromRPY(0.0, 0.0, msg->yaw), this->mLocalWaypoint.orientation);
+  this->mState = State::WAYPOINT;
+  this->mMavrosAdapter.executeMoveWithWaypoint(this->mLocalWaypoint);
 }
 
 void OffboardControl::velocityCallback(const geometry_msgs::Twist::ConstPtr& msg) {
@@ -118,34 +125,48 @@ void OffboardControl::velocityCallback(const geometry_msgs::Twist::ConstPtr& msg
   twist.linear.x = (msg->linear.x * cosTheta) - (msg->linear.y * sinTheta);
   twist.linear.y = (msg->linear.y * cosTheta) + (msg->linear.x * sinTheta);
   twist.linear.z = msg->linear.z;
+  this->mState = State::VELOCITY;
   this->mMavrosAdapter.executeMoveWithVelocity(twist);
 }
 
 void OffboardControl::resumeMissionCallback(const std_msgs::Empty::ConstPtr& msg) {
-  this->mEnRouteToWaypoint = false;
   // Set waypoint to current position when returning to mission.
-  this->mGlobalWaypoint = this->mCurrentOdometry.pose.pose;
-  this->setWaypoint(this->mGlobalWaypoint);
+  this->mLocalWaypoint = this->mCurrentOdometry.pose.pose;
+  this->mMavrosAdapter.executeMoveWithWaypoint(this->mLocalWaypoint);
   this->mMavrosAdapter.executeMissionResume();
 }
 
 void OffboardControl::stopCallback(const std_msgs::Empty::ConstPtr& msg) {
-  this->mGlobalWaypoint = this->mCurrentOdometry.pose.pose;
-  this->setWaypoint(this->mGlobalWaypoint);
+  this->mLocalWaypoint = this->mCurrentOdometry.pose.pose;
+  this->mMavrosAdapter.executeMoveWithWaypoint(this->mLocalWaypoint);
 }
 
 void OffboardControl::odometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
   this->mCurrentOdometry = *msg;
   this->mReceivedOdometry = true;
-  if (this->mEnRouteToWaypoint &&
-      fabs(msg->pose.pose.position.x - this->mGlobalWaypoint.position.x) < CLOSE_ENOUGH &&
-      fabs(msg->pose.pose.position.y - this->mGlobalWaypoint.position.y) < CLOSE_ENOUGH &&
-      fabs(msg->pose.pose.position.z - this->mGlobalWaypoint.position.z) < CLOSE_ENOUGH) {
-    this->mWaypointArrivedPublisher.publish(std_msgs::Empty());
-    this->mEnRouteToWaypoint = false;
-  }
-  else if (this->mMavrosAdapter.isInVelocityMode() && msg->pose.pose.position.z < VELOCITY_ALERT_HEIGHT) {
-    this->mVelocityAlertPublisher.publish(msg->pose.pose);
+  switch (this->mState) {
+  case State::TAKEOFF:
+    std::cout << msg->pose.pose.position.z << " - " << TAKEOFF_HEIGHT << " < " << CLOSE_ENOUGH << std::endl;
+    if (fabs(msg->pose.pose.position.z - TAKEOFF_HEIGHT) < CLOSE_ENOUGH) {
+      this->completeTakeoff();
+    }
+    break;
+  case State::WAYPOINT:
+    if (fabs(msg->pose.pose.position.x - this->mLocalWaypoint.position.x) < CLOSE_ENOUGH &&
+        fabs(msg->pose.pose.position.y - this->mLocalWaypoint.position.y) < CLOSE_ENOUGH &&
+        fabs(msg->pose.pose.position.z - this->mLocalWaypoint.position.z) < CLOSE_ENOUGH) {
+      this->completeWaypoint();
+    }
+    break;
+  case State::VELOCITY:
+    if (msg->pose.pose.position.z < VELOCITY_ALERT_HEIGHT) {
+      //TODO: Add velocity alert.
+    }
+    break;
+  case State::LAND:
+    break;
+  default:
+    break;
   }
 }
 
@@ -154,8 +175,19 @@ void OffboardControl::gripperCallback(const std_msgs::Bool::ConstPtr& msg) {
   this->logMessage("Magnetic gripper: " + msg->data);
 }
 
-void OffboardControl::setWaypoint(const geometry_msgs::Pose pose) {
-  this->mMavrosAdapter.executeMoveWithWaypoint(pose);
+//TODO: Extract takeoff logic out of MavrosAdapter.
+void OffboardControl::completeTakeoff() {
+  std_msgs::UInt16 msg;
+  msg.data = CONTROL_EVENT_TAKEOFF_COMPLETE;
+  this->mEventPublisher.publish(msg);
+  this->mState = State::IDLE;
+}
+
+void OffboardControl::completeWaypoint() {
+  std_msgs::UInt16 msg;
+  msg.data = CONTROL_EVENT_WAYPOINT_COMPLETE;
+  this->mEventPublisher.publish(msg);
+  this->mState = State::IDLE;
 }
 
 void OffboardControl::logMessage(std::string message, bool isError) const {
@@ -173,11 +205,21 @@ std::string OffboardControl::getNamespace() const {
   return ns;
 }
 
+std::string OffboardControl::getStateString() const {
+  switch (this->mState) {
+    case State::IDLE: return "IDLE";
+    case State::TAKEOFF: return "TAKEOFF";
+    case State::LAND: return "LAND";
+    case State::RTL: return "RTL";
+    case State::WAYPOINT: return "WAYPOINT";
+    case State::VELOCITY: return "VELOCITY";
+  }
+}
+
 void OffboardControl::publishState() const {
   offboard_control::State stateMsg;
-  stateMsg.mode = this->mMavrosAdapter.getActionString();
-  stateMsg.en_route_to_waypoint = this->mEnRouteToWaypoint;
-  stateMsg.global_waypoint = this->mGlobalWaypoint;
+  stateMsg.mode = this->getStateString();
   stateMsg.local_waypoint = this->mLocalWaypoint;
+  stateMsg.gimbal_orientation = this->mGimbal.getOrientation();
   this->mStatePublisher.publish(stateMsg);
 }

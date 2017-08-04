@@ -2,7 +2,6 @@
 #define MAVROS_ADAPTER_H
 
 #include <offboard_control/landing_gear.h>
-#include <offboard_control/gimbal.h>
 
 #include <ros/ros.h>
 #include <mavros_msgs/State.h>
@@ -45,7 +44,6 @@ public:
   void enableGripper(bool enable);
   bool isArmed() const;
   bool isInVelocityMode() const;
-  std::string getActionString() const;
 
 private:
   enum Action {
@@ -94,7 +92,6 @@ private:
   ros::ServiceClient mSetStreamRateService;
 
   LandingGear mLandingGear;
-  Gimbal mGimbal;
   std::thread* mMavrosThread;
   ros::NodeHandle* mNodeHandle;
   ros::Rate mRosRate;

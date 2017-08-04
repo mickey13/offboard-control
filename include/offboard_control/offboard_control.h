@@ -2,6 +2,7 @@
 #define OFFBOARD_CONTROL_H
 
 #include <offboard_control/mavros_adapter.h>
+#include <offboard_control/gimbal.h>
 #include <offboard_control/Pose.h>
 
 #include <ros/ros.h>
@@ -27,8 +28,16 @@ public:
   void controlEffortEvent(geometry_msgs::Twist twist);
 
 private:
-  OffboardControl();
+  enum State {
+    IDLE,
+    TAKEOFF,
+    LAND,
+    RTL,
+    WAYPOINT,
+    VELOCITY
+  };
 
+  OffboardControl();
   void initializeParameters();
   bool takeoffService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
   bool landService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
@@ -39,14 +48,18 @@ private:
   void stopCallback(const std_msgs::Empty::ConstPtr& msg);
   void odometryCallback(const nav_msgs::Odometry::ConstPtr& msg);
   void gripperCallback(const std_msgs::Bool::ConstPtr& msg);
+  void completeTakeoff();
+  void completeWaypoint();
   void setWaypoint(const geometry_msgs::Pose pose);
   void logMessage(std::string message, bool isError = false) const;
   geometry_msgs::Pose transformGlobalPoseToLocalPose(const geometry_msgs::Pose& pose) const;
   geometry_msgs::Pose rotateAboutZ(const geometry_msgs::Pose& pose) const;
   std::string getNamespace() const;
+  std::string getStateString() const;
   void publishState() const;
 
   MavrosAdapter mMavrosAdapter;
+  Gimbal mGimbal;
   ros::ServiceServer mTakeoffService;
   ros::ServiceServer mLandService;
   ros::ServiceServer mRtlService;
@@ -56,20 +69,17 @@ private:
   ros::Subscriber mStopSubscriber;
   ros::Subscriber mOdometrySubscriber;
   ros::Subscriber mGripperSubscriber;
-  ros::Publisher mTakeoffCompletedPublisher;
-  ros::Publisher mWaypointArrivedPublisher;
+  ros::Publisher mEventPublisher;
   ros::Publisher mVelocityAlertPublisher;
   ros::Publisher mStatePublisher;
   ros::Publisher mLoggerPublisher;
 
   ros::NodeHandle* mNodeHandle;
-  geometry_msgs::Pose mGlobalWaypoint;
   geometry_msgs::Pose mLocalWaypoint;
   nav_msgs::Odometry mCurrentOdometry;
+  State mState;
   float mAngleOffset;
-  bool mEnRouteToWaypoint;
   bool mReceivedOdometry;
-  bool mIsSimulation;
 };
 
 #endif

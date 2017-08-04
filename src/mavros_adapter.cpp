@@ -23,7 +23,7 @@ static const std::string TOPIC_MAVROS_SET_STREAM_RATE = "mavros/set_stream_rate"
 static const std::string TOPIC_MAVROS_RC_IN = "mavros/rc/in";
 static const std::string TOPIC_MAVROS_RC_OVERRIDE = "mavros/rc/override";
 static const std::string TOPIC_MAVROS_ACTUATOR_CONTROL = "mavros/actuator_control";
-static const std::string TOPIC_LOGGER = "/ocs/log_message";
+static const std::string TOPIC_LOGGER = "offboard_control/log";
 static const std::string PX4_MODE_OFFBOARD = "OFFBOARD";
 static const std::string PX4_MODE_LAND = "AUTO.LAND";
 static const std::string PX4_MODE_RTL = "AUTO.RTL";
@@ -32,7 +32,7 @@ static const std::string APM_MODE_LAND = "LAND";
 static const std::string APM_MODE_RTL = "RTL";
 static const float REQUEST_INTERVAL = 2.0;
 static const float THROTTLE_NUDGE_INTERVAL = 5.0;
-static const float THROTTLE_NUDGE_HEIGHT = 10.0;
+static const float THROTTLE_NUDGE_HEIGHT = 3.0;
 static const unsigned int RC_THROTTLE_NUDGE_VALUE = 1100;
 static const int LANDING_GEAR_CYCLES = 3;
 
@@ -45,7 +45,6 @@ MavrosAdapter::MavrosAdapter(
   void (OffboardControl::*eventCallback)(),
   void (OffboardControl::*localPoseCallback)(geometry_msgs::Pose pose)
 ) : mRosRate(rosRate),
-    mGimbal(rosNode),
     TAKEOFF_HEIGHT(takeoffHeight) {
   this->mNodeHandle = &rosNode;
   this->mStateSubscriber = this->mNodeHandle->subscribe<mavros_msgs::State>(TOPIC_MAVROS_STATE, QUEUE_SIZE, &MavrosAdapter::stateCallback, this);
@@ -87,7 +86,6 @@ void MavrosAdapter::initialize() {
   this->connectToFlightController();
   this->setRcChannelStreamRate();
   this->mMavrosThread = new std::thread(&MavrosAdapter::threadLoop, this, this->mRosRate);
-  this->mGimbal.initialize();
 }
 
 void MavrosAdapter::executeTakeoffSequence(float yaw) {
@@ -148,7 +146,7 @@ void MavrosAdapter::executeMoveWithWaypoint(geometry_msgs::Pose waypoint) {
 void MavrosAdapter::executeMissionResume() {
   if (this->mIsRcInterrupt) {
     this->mIsRcInterrupt = false;
-    this->logMessage("RC interrupt disabled; resuming mission: \"" + this->getActionString() + "\".");
+    this->logMessage("RC interrupt disabled; resuming mission.");
   }
   else {
     this->logMessage("RC interrupt not already enabled.");
@@ -220,7 +218,6 @@ void MavrosAdapter::localPositionCallback(const geometry_msgs::PoseStamped::Cons
   if (!this->mCurrentState.armed) {
     this->mPreArmPose = this->mLocalPose;
   }
-  this->mGimbal.updateRobotPose(this->mLocalPose);
   (*this->mOffboardControl.*this->mLocalPoseCallback)(this->mLocalPose);
 }
 
@@ -228,11 +225,10 @@ void MavrosAdapter::rcInCallback(const mavros_msgs::RCIn::ConstPtr& msg) {
   if (msg->channels.size() >= 5) {
     if (this->mRcFlightModePulseValue != 0 && abs(this->mRcFlightModePulseValue - msg->channels[4]) > 5) {
       if (this->mIsRcInterrupt) {
-        this->logMessage("RC interrupt already enabled; resume mission will result in \"" + this->getActionString() + "\".");
+        this->logMessage("RC interrupt already enabled.");
       }
       else {
-        this->logMessage("RC interrupt detected; resume mission will result in \"" + this->getActionString() + "\".");
-        this->logMessage("RC interrupt is enabled; send message to uav_control/resume_mission topic to resume.");
+        this->logMessage("RC interrupt detected; send message to uav_control/resume_mission topic to resume.");
         this->mIsRcInterrupt = true;
         this->releaseAllChannels();
       }
@@ -430,27 +426,4 @@ void MavrosAdapter::logMessage(std::string message) const {
 
 bool MavrosAdapter::isTakingOff() const {
   return this->mIsTakingOff || !this->mTakeoffServiceResponse;
-}
-
-std::string MavrosAdapter::getActionString() const {
-  switch (this->mAction) {
-  case Action::TAKEOFF:
-    return "TAKEOFF";
-    break;
-  case Action::LAND:
-    return "LAND";
-    break;
-  case Action::RTL:
-    return "RTL";
-    break;
-  case Action::VELOCITY:
-    return "VELOCITY";
-    break;
-  case Action::WAYPOINT:
-    return "WAYPOINT";
-    break;
-  default:
-    return "NO ACTION";
-    break;
-  }
 }

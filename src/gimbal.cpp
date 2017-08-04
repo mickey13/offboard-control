@@ -33,6 +33,10 @@ void Gimbal::updateRobotPose(const geometry_msgs::Pose& pose) {
   this->mMutex.unlock();
 }
 
+geometry_msgs::Vector3 Gimbal::getOrientation() const {
+  return this->mGimbalOrientation;
+}
+
 void Gimbal::gimbalCallback(const geometry_msgs::Vector3::ConstPtr& msg) {
   this->mGimbalOrientation = *msg;
 }

@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
   ros::Rate rosRate(frequency);
 
   OffboardControl offboardControl(rosNode, rosRate, odometryTopic, takeoffHeight);
-  // offboardControl.initializeMavros();
+  offboardControl.initializeMavros();
 
   while (rosNode.ok()) {
     ros::spinOnce();

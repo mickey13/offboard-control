@@ -1,6 +1,8 @@
 #include <offboard_control/offboard_control.h>
 #include <offboard_control/State.h>
 
+#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/Twist.h>
 #include <sstream>
 
 OffboardControl::OffboardControl(
@@ -13,6 +15,7 @@ OffboardControl::OffboardControl(
   this->mTakeoffService = this->mRosNode->advertiseService("offboard_control/takeoff", &OffboardControl::takeoffService, this);
   this->mLandService = this->mRosNode->advertiseService("offboard_control/land", &OffboardControl::landService, this);
   this->mWaypointService = this->mRosNode->advertiseService("offboard_control/waypoint", &OffboardControl::waypointService, this);
+  this->mVelocityService = this->mRosNode->advertiseService("offboard_control/velocity", &OffboardControl::velocityService, this);
   this->mTakeoffHeight = takeoffHeight;
 }
 
@@ -60,8 +63,19 @@ bool OffboardControl::waypointService(offboard_control::Pose::Request& request, 
   geometry_msgs::Pose waypoint;
   std::stringstream ss;
   waypoint.position = request.position;
-  ss << "Moving to (" << waypoint.position.x << ", " << waypoint.position.y << ", " << waypoint.position.z << ").";
+  ss << "Moving to local position (" << waypoint.position.x << ", " << waypoint.position.y << ", " << waypoint.position.z << ").";
   this->mMavrosAdapter.waypoint(waypoint);
+  response.success = true;
+  response.message = ss.str();
+  return true;
+}
+
+bool OffboardControl::velocityService(offboard_control::Twist::Request& request, offboard_control::Twist::Response& response) {
+  geometry_msgs::Twist velocity;
+  std::stringstream ss;
+  velocity.linear = request.linear;
+  ss << "Moving with velocity (" << velocity.linear.x << ", " << velocity.linear.y << ", " << velocity.linear.z << ").";
+  this->mMavrosAdapter.velocity(velocity);
   response.success = true;
   response.message = ss.str();
   return true;

@@ -3,6 +3,7 @@
 
 #include <offboard_control/mavros_adapter.h>
 #include <offboard_control/Pose.h>
+#include <offboard_control/Twist.h>
 
 #include <ros/ros.h>
 #include <std_srvs/Trigger.h>
@@ -23,12 +24,14 @@ private:
   bool takeoffService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
   bool landService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
   bool waypointService(offboard_control::Pose::Request& request, offboard_control::Pose::Response& response);
+  bool velocityService(offboard_control::Twist::Request& request, offboard_control::Twist::Response& response);
 
   MavrosAdapter mMavrosAdapter;
   ros::NodeHandle* mRosNode;
   ros::ServiceServer mTakeoffService;
   ros::ServiceServer mLandService;
   ros::ServiceServer mWaypointService;
+  ros::ServiceServer mVelocityService;
   float mTakeoffHeight;
 };
 

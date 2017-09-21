@@ -16,11 +16,11 @@ Offboard control package for PX4 flight stack using MAVROS.
 
     rosservice call offboard_control/waypoint "{ position: { x: 0.0, y: 0.0, z: 0.0 }, yaw: 0.0 }"
 
-<!-- ### Velocity
+### Velocity
 
-    rostopic pub offboard_control/velocity geometry_msgs/Twist '{ linear: { x: 0.0, y: 0.0, z: 0.0 }, angular: { x: 0.0, y: 0.0, z: 0.0 } }'
+    rosservice call offboard_control/velocity "{ linear: { x: 0.0, y: 0.0, z: 0.0 }, yaw: 0.0 }"
 
-### Gimbal
+<!-- ### Gimbal
 
     rostopic pub offboard_control/gimbal geometry_msgs/Vector3 '{ x: 0.0, y: 0.0, z: 0.0 }'
 

@@ -4,6 +4,7 @@
 #include <mavros_msgs/CommandTOL.h>
 #include <mavros_msgs/SetMode.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/TwistStamped.h>
 
 static const std::string PX4_MODE_OFFBOARD = "OFFBOARD";
 static const float REQUEST_INTERVAL = 2.0;
@@ -21,6 +22,7 @@ MavrosAdapter::MavrosAdapter(
   this->mLocalOdometrySubscriber = this->mRosNode->subscribe<nav_msgs::Odometry>("mavros/local_position/odom", 1, &MavrosAdapter::localOdometryCallback, this);
   this->mGlobalPositionSubscriber = this->mRosNode->subscribe<sensor_msgs::NavSatFix>("mavros/global_position/global", 1, &MavrosAdapter::globalPositionCallback, this);
   this->mWaypointPublisher = this->mRosNode->advertise<geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 1);
+  this->mVelocityPublisher = this->mRosNode->advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 1);
   this->mLastRequest = ros::Time::now();
   this->mOffboardMode = OffboardMode::NONE;
 }
@@ -54,9 +56,14 @@ bool MavrosAdapter::land() {
   return this->mLandService.call(landMsg);
 }
 
-void MavrosAdapter::waypoint(geometry_msgs::Pose waypoint) {
-  this->mOffboardWaypoint = waypoint;
+void MavrosAdapter::waypoint(geometry_msgs::Pose pose) {
+  this->mOffboardWaypoint = pose;
   this->mOffboardMode = OffboardMode::WAYPOINT;
+}
+
+void MavrosAdapter::velocity(geometry_msgs::Twist twist) {
+  this->mOffboardVelocity = twist;
+  this->mOffboardMode = OffboardMode::VELOCITY;
 }
 
 bool MavrosAdapter::isFcuConnected() const {
@@ -84,9 +91,15 @@ void MavrosAdapter::globalPositionCallback(const sensor_msgs::NavSatFix::ConstPt
 }
 
 void MavrosAdapter::publishWaypoint() const {
-  geometry_msgs::PoseStamped waypointMsg;
-  waypointMsg.pose = this->mOffboardWaypoint;
-  this->mWaypointPublisher.publish(waypointMsg);
+  geometry_msgs::PoseStamped poseMsg;
+  poseMsg.pose = this->mOffboardWaypoint;
+  this->mWaypointPublisher.publish(poseMsg);
+}
+
+void MavrosAdapter::publishVelocity() const {
+  geometry_msgs::TwistStamped twistMsg;
+  twistMsg.twist = this->mOffboardVelocity;
+  this->mVelocityPublisher.publish(twistMsg);
 }
 
 void MavrosAdapter::connectToFlightController() {
@@ -110,6 +123,7 @@ void MavrosAdapter::configureOffboardMode() {
     mavros_msgs::SetMode setModeCommand;
     setModeCommand.request.custom_mode = PX4_MODE_OFFBOARD;
     if (this->mSetModeService.call(setModeCommand)) {
+      ROS_INFO_STREAM("Setting flight mode to " + PX4_MODE_OFFBOARD + ".");
     }
     this->mLastRequest = ros::Time::now();
   }
@@ -121,6 +135,10 @@ void MavrosAdapter::threadLoop() {
     case OffboardMode::WAYPOINT:
       this->configureOffboardMode();
       this->publishWaypoint();
+      break;
+    case OffboardMode::VELOCITY:
+      this->configureOffboardMode();
+      this->publishVelocity();
       break;
     default:
       break;

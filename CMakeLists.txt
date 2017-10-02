@@ -146,6 +146,11 @@ add_executable(
   src/landing_gear.cpp
   src/gimbal.cpp
 )
+add_executable(
+  feedback_control
+  src/feedback_control_node.cpp
+  src/feedback_control.cpp
+)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -160,10 +165,19 @@ add_dependencies(
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
 )
+add_dependencies(
+  feedback_control
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(
   offboard_control
+  ${catkin_LIBRARIES}
+)
+target_link_libraries(
+  feedback_control
   ${catkin_LIBRARIES}
 )
 

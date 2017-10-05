@@ -1,7 +1,6 @@
 #include <offboard_control/offboard_control.h>
 #include <offboard_control/State.h>
 
-#include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Twist.h>
 #include <std_msgs/UInt16.h>
 #include <sstream>
@@ -70,11 +69,11 @@ bool OffboardControl::landService(std_srvs::Trigger::Request& request, std_srvs:
 }
 
 bool OffboardControl::waypointService(offboard_control::Pose::Request& request, offboard_control::Pose::Response& response) {
-  geometry_msgs::Pose waypoint;
   std::stringstream ss;
-  waypoint.position = request.position;
-  ss << "Moving to local position (" << waypoint.position.x << ", " << waypoint.position.y << ", " << waypoint.position.z << ").";
-  this->mMavrosAdapter.waypoint(waypoint);
+  this->mState = State::WAYPOINT;
+  this->mLocalWaypoint.position = request.position;
+  ss << "Moving to local position (" << this->mLocalWaypoint.position.x << ", " << this->mLocalWaypoint.position.y << ", " << this->mLocalWaypoint.position.z << ").";
+  this->mMavrosAdapter.waypoint(this->mLocalWaypoint);
   response.success = true;
   response.message = ss.str();
   return true;
@@ -83,6 +82,7 @@ bool OffboardControl::waypointService(offboard_control::Pose::Request& request, 
 bool OffboardControl::velocityService(offboard_control::Twist::Request& request, offboard_control::Twist::Response& response) {
   geometry_msgs::Twist velocity;
   std::stringstream ss;
+  this->mState = State::VELOCITY;
   velocity.linear = request.linear;
   ss << "Moving with velocity (" << velocity.linear.x << ", " << velocity.linear.y << ", " << velocity.linear.z << ").";
   this->mMavrosAdapter.velocity(velocity);
@@ -107,6 +107,11 @@ void OffboardControl::odometryCallback(const nav_msgs::Odometry::ConstPtr& msg) 
   case State::LAND:
     break;
   case State::WAYPOINT:
+    if (fabs(this->mCurrentOdometry.pose.pose.position.x - this->mLocalWaypoint.position.x) < CLOSE_ENOUGH &&
+        fabs(this->mCurrentOdometry.pose.pose.position.y - this->mLocalWaypoint.position.y) < CLOSE_ENOUGH &&
+        fabs(this->mCurrentOdometry.pose.pose.position.z - this->mLocalWaypoint.position.z) < CLOSE_ENOUGH) {
+      this->completeWaypoint();
+    }
     break;
   case State::VELOCITY:
     break;

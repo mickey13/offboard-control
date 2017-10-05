@@ -8,6 +8,7 @@
 #include <ros/ros.h>
 #include <std_srvs/Trigger.h>
 #include <nav_msgs/Odometry.h>
+#include <geometry_msgs/Pose.h>
 
 class OffboardControl
 {
@@ -52,6 +53,7 @@ private:
   State mState;
   nav_msgs::Odometry mInitialOdometry;
   nav_msgs::Odometry mCurrentOdometry;
+  geometry_msgs::Pose mLocalWaypoint;
   float mTakeoffHeight;
 };
 

@@ -1,6 +1,7 @@
 #include <offboard_control/offboard_control.h>
 #include <offboard_control/State.h>
 
+#include <tf/transform_datatypes.h>
 #include <geometry_msgs/Twist.h>
 #include <std_msgs/UInt16.h>
 #include <sstream>
@@ -72,7 +73,8 @@ bool OffboardControl::waypointService(offboard_control::Pose::Request& request, 
   std::stringstream ss;
   this->mState = State::WAYPOINT;
   this->mLocalWaypoint.position = request.position;
-  ss << "Moving to local position (" << this->mLocalWaypoint.position.x << ", " << this->mLocalWaypoint.position.y << ", " << this->mLocalWaypoint.position.z << ").";
+  this->mLocalWaypoint.orientation = tf::createQuaternionMsgFromYaw(request.yaw);
+  ss << "Moving to local position: (" << this->mLocalWaypoint.position.x << ", " << this->mLocalWaypoint.position.y << ", " << this->mLocalWaypoint.position.z << "), yaw: " << request.yaw << ".";
   this->mMavrosAdapter.waypoint(this->mLocalWaypoint);
   response.success = true;
   response.message = ss.str();
@@ -84,7 +86,8 @@ bool OffboardControl::velocityService(offboard_control::Twist::Request& request,
   std::stringstream ss;
   this->mState = State::VELOCITY;
   velocity.linear = request.linear;
-  ss << "Moving with velocity (" << velocity.linear.x << ", " << velocity.linear.y << ", " << velocity.linear.z << ").";
+  velocity.angular.z = request.yaw;
+  ss << "Moving with velocity: (" << velocity.linear.x << ", " << velocity.linear.y << ", " << velocity.linear.z << "), yaw: " << velocity.angular.z << ".";
   this->mMavrosAdapter.velocity(velocity);
   response.success = true;
   response.message = ss.str();

@@ -20,6 +20,7 @@ private:
   bool enableService(std_srvs::SetBool::Request& request, std_srvs::SetBool::Response& response);
   void feedbackCallback(const geometry_msgs::Pose::ConstPtr& msg);
   offboard_control::Twist calculateVelocity(const geometry_msgs::Pose& pose) const;
+  double capSpeed(double speed) const;
 
   ros::NodeHandle* mRosNode;
   ros::ServiceServer mEnableService;

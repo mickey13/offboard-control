@@ -6,8 +6,8 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "feedback_control");
   ros::NodeHandle rosNode;
   float frequency = 2.0;
-  float maxDescentSpeed = -1.0;
-  float maxLateralSpeed = 2.0;
+  float maxDescentSpeed = -0.1;
+  float maxLateralSpeed = 0.1;
   rosNode.param(ros::this_node::getName() + "/frequency", frequency, frequency);
   rosNode.param(ros::this_node::getName() + "/max_descent_speed", maxDescentSpeed, maxDescentSpeed);
   rosNode.param(ros::this_node::getName() + "/max_lateral_speed", maxLateralSpeed, maxLateralSpeed);

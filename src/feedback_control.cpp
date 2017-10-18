@@ -39,9 +39,19 @@ void FeedbackControl::feedbackCallback(const geometry_msgs::Pose::ConstPtr& msg)
 
 offboard_control::Twist FeedbackControl::calculateVelocity(const geometry_msgs::Pose& pose) const {
   offboard_control::Twist twist;
-  double descent = (-1.0 * fabs(pose.position.z) / 4.0) - 0.1;
-  twist.request.linear.x = std::min(pose.position.x, this->mMaxLateralSpeed);
-  twist.request.linear.y = std::min(pose.position.y, this->mMaxLateralSpeed);
+  double descent = -1.0 * fabs(pose.position.z) / 4.0;
+  twist.request.linear.x = FeedbackControl::capSpeed(pose.position.x / 4.0);
+  twist.request.linear.y = FeedbackControl::capSpeed(pose.position.y / 4.0);
   twist.request.linear.z = std::max(descent, this->mMaxDescentSpeed);
   return twist;
+}
+
+double FeedbackControl::capSpeed(double speed) const {
+  if (speed > this->mMaxLateralSpeed) {
+    return this->mMaxLateralSpeed;
+  }
+  if (speed < -1.0 * this->mMaxLateralSpeed) {
+    return -1.0 * this->mMaxLateralSpeed;
+  }
+  return speed;
 }

@@ -33,38 +33,41 @@ void OffboardControl::initializeMavros() {
 }
 
 bool OffboardControl::takeoffService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response) {
-  if (this->mMavrosAdapter.arm(true)) {
-    if (this->mMavrosAdapter.takeoff(this->mTakeoffHeight)) {
-      this->mState = State::TAKEOFF;
-      std::stringstream ss;
-      ss << "Taking off to " << this->mTakeoffHeight << " meters.";
-      response.success = true;
-      response.message = ss.str();
-    }
-    else {
-      response.success = false;
-      response.message = "Failed to initiate takeoff.";
-    }
-  }
-  else {
+  if (this->mMavrosAdapter.isFcuArmed()) {
     response.success = false;
-    response.message = "Failed to arm.";
+    response.message = "Takeoff command failed. FCU should not be already armed.";
   }
-  return true;
-}
-
-bool OffboardControl::landService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response) {
-  if (this->mMavrosAdapter.land()) {
+  else if (this->mMavrosAdapter.arm(true)) {
+    this->mState = State::TAKEOFF;
+    this->mLocalWaypoint = this->mInitialOdometry.pose.pose;
+    this->mLocalWaypoint.position.z += this->mTakeoffHeight;
+    this->mMavrosAdapter.waypoint(this->mLocalWaypoint);
     std::stringstream ss;
-    double latitude = this->mMavrosAdapter.getGlobalPosition().latitude;
-    double longitude = this->mMavrosAdapter.getGlobalPosition().longitude;
-    ss << "Landing at " << latitude << " latitude, " << longitude << " longitude.";
+    ss << "Taking off to " << this->mTakeoffHeight << " meters.";
     response.success = true;
     response.message = ss.str();
   }
   else {
     response.success = false;
-    response.message = "Failed to initiate landing.";
+    response.message = "Failed to arm FCU via MAVROS.";
+  }
+  return true;
+}
+
+bool OffboardControl::landService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response) {
+  if (this->mMavrosAdapter.isFcuArmed()) {
+    geometry_msgs::Twist velocity;
+    std::stringstream ss;
+    this->mState = State::LAND;
+    velocity.linear.z = -1.0;
+    ss << "Landing with velocity: (" << velocity.linear.x << ", " << velocity.linear.y << ", " << velocity.linear.z << "), yaw: " << velocity.angular.z << ".";
+    this->mMavrosAdapter.velocity(velocity);
+    response.success = true;
+    response.message = ss.str();
+  }
+  else {
+    response.success = false;
+    response.message = "Land command failed. FCU should be armed.";
   }
   return true;
 }

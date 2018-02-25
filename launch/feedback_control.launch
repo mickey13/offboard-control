@@ -1,12 +1,12 @@
-<?xml version="1.0" ?>
+<?xml version='1.0' ?>
 <launch>
-  <arg name="frequency" default="10.0" />
-  <arg name="max_descent_speed" default="-0.1" />
-  <arg name="max_lateral_speed" default="0.1" />
+  <arg name='frequency' default='10.0' />
+  <arg name='max_descent_speed' default='-0.1' />
+  <arg name='max_lateral_speed' default='0.1' />
 
-  <node name="feedback_control" pkg="offboard_control" type="feedback_control" output="screen">
-    <param name="frequency" value="$(arg frequency)" />
-    <param name="max_descent_speed" value="$(arg max_descent_speed)" />
-    <param name="max_lateral_speed" value="$(arg max_lateral_speed)" />
+  <node name='feedback_control' pkg='offboard_control' type='feedback_control' output='screen'>
+    <param name='frequency' value='$(arg frequency)' />
+    <param name='max_descent_speed' value='$(arg max_descent_speed)' />
+    <param name='max_lateral_speed' value='$(arg max_lateral_speed)' />
   </node>
 </launch>

@@ -15,16 +15,12 @@ MavrosAdapter::MavrosAdapter(
 ) : mRosRate(rate) {
   this->mRosNode = &rosNode;
   this->mArmingService = this->mRosNode->serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
-  this->mTakeoffService = this->mRosNode->serviceClient<mavros_msgs::CommandTOL>("mavros/cmd/takeoff");
-  this->mLandService = this->mRosNode->serviceClient<mavros_msgs::CommandTOL>("mavros/cmd/land");
   this->mSetModeService = this->mRosNode->serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
   this->mStateSubscriber = this->mRosNode->subscribe<mavros_msgs::State>("mavros/state", 1, &MavrosAdapter::stateCallback, this);
-  this->mLocalOdometrySubscriber = this->mRosNode->subscribe<nav_msgs::Odometry>("mavros/local_position/odom", 1, &MavrosAdapter::localOdometryCallback, this);
-  this->mGlobalPositionSubscriber = this->mRosNode->subscribe<sensor_msgs::NavSatFix>("mavros/global_position/global", 1, &MavrosAdapter::globalPositionCallback, this);
   this->mWaypointPublisher = this->mRosNode->advertise<geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 1);
   this->mVelocityPublisher = this->mRosNode->advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 1);
   this->mLastRequest = ros::Time::now();
-  this->mOffboardMode = OffboardMode::NONE;
+  this->mOffboardMode = OffboardMode::WAYPOINT;
 }
 
 void MavrosAdapter::initialize() {
@@ -36,24 +32,6 @@ bool MavrosAdapter::arm(bool doArm) {
   mavros_msgs::CommandBool armMsg;
   armMsg.request.value = doArm;
   return this->mArmingService.call(armMsg);
-}
-
-bool MavrosAdapter::takeoff(float takeoffHeight) {
-  this->mOffboardMode = OffboardMode::NONE;
-  this->mOffboardWaypoint.position.z = takeoffHeight;
-  mavros_msgs::CommandTOL takeoffMsg;
-  takeoffMsg.request.latitude = this->mGlobalPosition.latitude;
-  takeoffMsg.request.longitude = this->mGlobalPosition.longitude;
-  takeoffMsg.request.altitude = this->mGlobalPosition.altitude + takeoffHeight;
-  return this->mTakeoffService.call(takeoffMsg);
-}
-
-bool MavrosAdapter::land() {
-  this->mOffboardMode = OffboardMode::NONE;
-  mavros_msgs::CommandTOL landMsg;
-  landMsg.request.latitude = this->mGlobalPosition.latitude;
-  landMsg.request.longitude = this->mGlobalPosition.longitude;
-  return this->mLandService.call(landMsg);
 }
 
 void MavrosAdapter::waypoint(geometry_msgs::Pose pose) {
@@ -74,20 +52,8 @@ bool MavrosAdapter::isFcuArmed() const {
   return this->mFcuState.armed;
 }
 
-sensor_msgs::NavSatFix MavrosAdapter::getGlobalPosition() const {
-  return this->mGlobalPosition;
-}
-
 void MavrosAdapter::stateCallback(const mavros_msgs::State::ConstPtr& msg) {
   this->mFcuState = *msg;
-}
-
-void MavrosAdapter::localOdometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
-  this->mLocalOdometry = *msg;
-}
-
-void MavrosAdapter::globalPositionCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
-  this->mGlobalPosition = *msg;
 }
 
 void MavrosAdapter::publishWaypoint() const {
@@ -105,11 +71,12 @@ void MavrosAdapter::publishVelocity() const {
 void MavrosAdapter::connectToFlightController() {
   // Before publishing anything, we wait for the connection to be established between mavros and the autopilot.
   // This loop should exit as soon as a heartbeat message is received.
+  ROS_INFO("Connecting to flight control unit.");
   while (ros::ok() && !this->mFcuState.connected) {
-    ROS_INFO("Connecting to flight control unit.");
     ros::spinOnce();
     this->mRosRate.sleep();
   }
+  ROS_INFO("Connection between MAVROS and flight control unit established.");
 }
 
 void MavrosAdapter::configureOffboardMode() {
@@ -131,13 +98,12 @@ void MavrosAdapter::configureOffboardMode() {
 
 void MavrosAdapter::threadLoop() {
   while (this->mRosNode->ok()) {
+    this->configureOffboardMode();
     switch (this->mOffboardMode) {
     case OffboardMode::WAYPOINT:
-      this->configureOffboardMode();
       this->publishWaypoint();
       break;
     case OffboardMode::VELOCITY:
-      this->configureOffboardMode();
       this->publishVelocity();
       break;
     default:

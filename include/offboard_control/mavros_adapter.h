@@ -8,6 +8,7 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Twist.h>
 #include <thread>
+#include <atomic>
 
 class OffboardControl;
 
@@ -17,6 +18,7 @@ public:
     ros::NodeHandle &rosNode,
     ros::Rate rosRate
   );
+  ~MavrosAdapter();
   void initialize();
   bool arm(bool doArm);
   void waypoint(geometry_msgs::Pose pose);
@@ -47,6 +49,8 @@ private:
   ros::Time mLastRequest;
 
   std::thread* mMavrosThread;
+  std::atomic<bool> mIsRunning;
+
   mavros_msgs::State mFcuState;
   geometry_msgs::Pose mOffboardWaypoint;
   geometry_msgs::Twist mOffboardVelocity;

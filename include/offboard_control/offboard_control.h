@@ -57,6 +57,7 @@ private:
   ros::Publisher mStatePublisher;
 
   std::thread* mStateThread;
+  std::atomic<bool> mIsRunning;
   std::atomic<Mode> mMode;
 
   nav_msgs::Odometry mInitialOdometry;

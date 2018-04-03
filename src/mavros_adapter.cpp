@@ -21,11 +21,20 @@ MavrosAdapter::MavrosAdapter(
   this->mVelocityPublisher = this->mRosNode->advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 1);
   this->mLastRequest = ros::Time::now();
   this->mOffboardMode = OffboardMode::WAYPOINT;
+  this->mIsRunning = false;
+  this->mMavrosThread = new std::thread(&MavrosAdapter::threadLoop, this);
+}
+
+MavrosAdapter::~MavrosAdapter() {
+  if (this->mMavrosThread != NULL) {
+    this->mIsRunning = false;
+    this->mMavrosThread->join();
+    delete this->mMavrosThread;
+  }
 }
 
 void MavrosAdapter::initialize() {
   this->connectToFlightController();
-  this->mMavrosThread = new std::thread(&MavrosAdapter::threadLoop, this);
 }
 
 bool MavrosAdapter::arm(bool doArm) {
@@ -97,7 +106,8 @@ void MavrosAdapter::configureOffboardMode() {
 }
 
 void MavrosAdapter::threadLoop() {
-  while (this->mRosNode->ok()) {
+  this->mIsRunning = true;
+  while (this->mRosNode->ok() && this->mIsRunning) {
     this->configureOffboardMode();
     switch (this->mOffboardMode) {
     case OffboardMode::WAYPOINT:

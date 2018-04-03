@@ -25,13 +25,15 @@ OffboardControl::OffboardControl(
   this->mOdometrySubscriber = this->mRosNode->subscribe<nav_msgs::Odometry>(odometryTopic, 1, &OffboardControl::odometryCallback, this);
   this->mEventPublisher = this->mRosNode->advertise<std_msgs::UInt16>("offboard_control/event", 1);
   this->mStatePublisher = this->mRosNode->advertise<offboard_control::State>("offboard_control/state", 1);
-  this->mMode = Mode::IDLE;
   this->mTakeoffHeight = takeoffHeight;
+  this->mIsRunning = false;
+  this->mMode = Mode::IDLE;
   this->mStateThread = new std::thread(&OffboardControl::threadLoop, this);
 }
 
 OffboardControl::~OffboardControl() {
   if (this->mStateThread != NULL) {
+    this->mIsRunning = false;
     this->mStateThread->join();
     delete this->mStateThread;
   }
@@ -167,7 +169,8 @@ void OffboardControl::publishState() const {
 
 void OffboardControl::threadLoop() {
   ros::Rate rosRate(1.0);
-  while (this->mRosNode->ok()) {
+  this->mIsRunning = true;
+  while (this->mRosNode->ok() && this->mIsRunning) {
     this->publishState();
     ros::spinOnce();
     rosRate.sleep();

@@ -1,3 +1,1 @@
 string mode
-geometry_msgs/Pose local_waypoint
-geometry_msgs/Vector3 gimbal_orientation

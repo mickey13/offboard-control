@@ -9,9 +9,10 @@
 #include <std_srvs/Trigger.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/Pose.h>
+#include <thread>
+#include <atomic>
 
-class OffboardControl
-{
+class OffboardControl {
 public:
   OffboardControl(
     ros::NodeHandle &rosNode,
@@ -19,10 +20,11 @@ public:
     std::string odometryTopic,
     float takeoffHeight
   );
+  ~OffboardControl();
   void initializeMavros();
 
 private:
-  enum State {
+  enum Mode {
     IDLE,
     TAKEOFF,
     LAND,
@@ -40,6 +42,9 @@ private:
   void completeLand();
   void completeWaypoint();
   void publishEvent(unsigned int controlEvent) const;
+  void publishState() const;
+  void threadLoop();
+  std::string getStringFromEnum(Mode mode) const;
 
   MavrosAdapter mMavrosAdapter;
   ros::NodeHandle* mRosNode;
@@ -49,8 +54,11 @@ private:
   ros::ServiceServer mVelocityService;
   ros::Subscriber mOdometrySubscriber;
   ros::Publisher mEventPublisher;
+  ros::Publisher mStatePublisher;
 
-  State mState;
+  std::thread* mStateThread;
+  std::atomic<Mode> mMode;
+
   nav_msgs::Odometry mInitialOdometry;
   nav_msgs::Odometry mCurrentOdometry;
   geometry_msgs::Pose mLocalWaypoint;

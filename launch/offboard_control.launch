@@ -1,7 +1,7 @@
 <?xml version='1.0' ?>
 <launch>
   <arg name='frequency' default='30.0' />
-  <arg name='takeoff_height' default='10.0' />
+  <arg name='takeoff_height' default='2.5' />
   <arg name='odometry_topic' default='mavros/local_position/odom' />
 
   <node name='offboard_control' pkg='offboard_control' type='offboard_control' output='screen'>

@@ -6,7 +6,7 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "offboard_control");
   ros::NodeHandle rosNode;
   float frequency = 30.0;
-  float takeoffHeight = 10.0;
+  float takeoffHeight = 2.5;
   std::string odometryTopic = "mavros/local_position/odom";
   rosNode.param(ros::this_node::getName() + "/frequency", frequency, frequency);
   rosNode.param(ros::this_node::getName() + "/takeoff_height", takeoffHeight, takeoffHeight);

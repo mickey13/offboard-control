@@ -59,7 +59,7 @@ bool OffboardControl::landService(std_srvs::Trigger::Request& request, std_srvs:
     geometry_msgs::Twist velocity;
     std::stringstream ss;
     this->mState = State::LAND;
-    velocity.linear.z = -1.0;
+    velocity.linear.z = -0.5;
     ss << "Landing with velocity: (" << velocity.linear.x << ", " << velocity.linear.y << ", " << velocity.linear.z << "), yaw: " << velocity.angular.z << ".";
     this->mMavrosAdapter.velocity(velocity);
     response.success = true;

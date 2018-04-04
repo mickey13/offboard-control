@@ -75,9 +75,13 @@ bool OffboardControl::disableService(std_srvs::Trigger::Request& request, std_sr
 }
 
 bool OffboardControl::takeoffService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response) {
-  if (this->mMavrosAdapter.isFcuArmed()) {
+  if (!this->mMavrosAdapter.isEnabled()) {
     response.success = false;
-    response.message = "Takeoff command failed. FCU should not be already armed.";
+    response.message = "Takeoff command failed; offboard control is disabled.";
+  }
+  else if (this->mMavrosAdapter.isFcuArmed()) {
+    response.success = false;
+    response.message = "Takeoff command failed; flight control unit should not already be armed.";
   }
   else if (this->mMavrosAdapter.arm(true)) {
     this->mMode = Mode::TAKEOFF;
@@ -92,13 +96,21 @@ bool OffboardControl::takeoffService(std_srvs::Trigger::Request& request, std_sr
   }
   else {
     response.success = false;
-    response.message = "Failed to arm FCU via MAVROS.";
+    response.message = "Takeoff command failed; failed to arm flight control unit.";
   }
   return true;
 }
 
 bool OffboardControl::landService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response) {
-  if (this->mMavrosAdapter.isFcuArmed()) {
+  if (!this->mMavrosAdapter.isEnabled()) {
+    response.success = false;
+    response.message = "Land command failed; offboard control is disabled.";
+  }
+  else if (!this->mMavrosAdapter.isFcuArmed()) {
+    response.success = false;
+    response.message = "Land command failed; flight control unit is not armed.";
+  }
+  else {
     geometry_msgs::Twist velocity;
     std::stringstream ss;
     this->mMode = Mode::LAND;
@@ -108,35 +120,51 @@ bool OffboardControl::landService(std_srvs::Trigger::Request& request, std_srvs:
     response.success = true;
     response.message = ss.str();
   }
-  else {
-    response.success = false;
-    response.message = "Land command failed. FCU should be armed.";
-  }
   return true;
 }
 
 bool OffboardControl::waypointService(offboard_control::Pose::Request& request, offboard_control::Pose::Response& response) {
-  std::stringstream ss;
-  this->mMode = Mode::WAYPOINT;
-  this->mLocalWaypoint.position = request.position;
-  this->mLocalWaypoint.orientation = tf::createQuaternionMsgFromYaw(request.yaw);
-  ss << "Moving to local position: (" << this->mLocalWaypoint.position.x << ", " << this->mLocalWaypoint.position.y << ", " << this->mLocalWaypoint.position.z << "), yaw: " << request.yaw << ".";
-  this->mMavrosAdapter.waypoint(this->mLocalWaypoint);
-  response.success = true;
-  response.message = ss.str();
+  if (!this->mMavrosAdapter.isEnabled()) {
+    response.success = false;
+    response.message = "Waypoint command failed; offboard control is disabled.";
+  }
+  else if (!this->mMavrosAdapter.isFcuArmed()) {
+    response.success = false;
+    response.message = "Waypoint command failed; flight control unit is not armed.";
+  }
+  else {
+    std::stringstream ss;
+    this->mMode = Mode::WAYPOINT;
+    this->mLocalWaypoint.position = request.position;
+    this->mLocalWaypoint.orientation = tf::createQuaternionMsgFromYaw(request.yaw);
+    ss << "Moving to local position: (" << this->mLocalWaypoint.position.x << ", " << this->mLocalWaypoint.position.y << ", " << this->mLocalWaypoint.position.z << "), yaw: " << request.yaw << ".";
+    this->mMavrosAdapter.waypoint(this->mLocalWaypoint);
+    response.success = true;
+    response.message = ss.str();
+  }
   return true;
 }
 
 bool OffboardControl::velocityService(offboard_control::Twist::Request& request, offboard_control::Twist::Response& response) {
-  geometry_msgs::Twist velocity;
-  std::stringstream ss;
-  this->mMode = Mode::VELOCITY;
-  velocity.linear = request.linear;
-  velocity.angular.z = request.yaw;
-  ss << "Moving with velocity: (" << velocity.linear.x << ", " << velocity.linear.y << ", " << velocity.linear.z << "), yaw: " << velocity.angular.z << ".";
-  this->mMavrosAdapter.velocity(velocity);
-  response.success = true;
-  response.message = ss.str();
+  if (!this->mMavrosAdapter.isEnabled()) {
+    response.success = false;
+    response.message = "Velocity command failed; offboard control is disabled.";
+  }
+  else if (!this->mMavrosAdapter.isFcuArmed()) {
+    response.success = false;
+    response.message = "Velocity command failed; flight control unit is not armed.";
+  }
+  else {
+    geometry_msgs::Twist velocity;
+    std::stringstream ss;
+    this->mMode = Mode::VELOCITY;
+    velocity.linear = request.linear;
+    velocity.angular.z = request.yaw;
+    ss << "Moving with velocity: (" << velocity.linear.x << ", " << velocity.linear.y << ", " << velocity.linear.z << "), yaw: " << velocity.angular.z << ".";
+    this->mMavrosAdapter.velocity(velocity);
+    response.success = true;
+    response.message = ss.str();
+  }
   return true;
 }
 

@@ -9,10 +9,7 @@
 static const std::string PX4_MODE_OFFBOARD = "OFFBOARD";
 static const float REQUEST_INTERVAL = 2.0;
 
-MavrosAdapter::MavrosAdapter(
-  ros::NodeHandle &rosNode,
-  ros::Rate rate
-) : mRosRate(rate) {
+MavrosAdapter::MavrosAdapter(ros::NodeHandle &rosNode) {
   this->mRosNode = &rosNode;
   this->mArmingService = this->mRosNode->serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
   this->mSetModeService = this->mRosNode->serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
@@ -91,9 +88,10 @@ void MavrosAdapter::connectToFlightController() {
   // Before publishing anything, we wait for the connection to be established between mavros and the autopilot.
   // This loop should exit as soon as a heartbeat message is received.
   ROS_INFO("Connecting to flight control unit.");
+  ros::Rate rosRate(10.0);
   while (ros::ok() && !this->mFcuState.connected) {
     ros::spinOnce();
-    this->mRosRate.sleep();
+    rosRate.sleep();
   }
   ROS_INFO("Connection between MAVROS and flight control unit established.");
 }
@@ -101,10 +99,11 @@ void MavrosAdapter::connectToFlightController() {
 void MavrosAdapter::configureOffboardMode() {
   if (this->mFcuState.mode != PX4_MODE_OFFBOARD && (ros::Time::now() - this->mLastRequest > ros::Duration(REQUEST_INTERVAL))) {
     // Before entering offboard mode, you must have already started streaming setpoints otherwise the mode switch will be rejected.
+    ros::Rate rosRate(10.0);
     for (int i = 50; ros::ok() && i > 0; --i) {
       this->publishWaypoint();
       ros::spinOnce();
-      this->mRosRate.sleep();
+      rosRate.sleep();
     }
     mavros_msgs::SetMode setModeCommand;
     setModeCommand.request.custom_mode = PX4_MODE_OFFBOARD;
@@ -116,6 +115,7 @@ void MavrosAdapter::configureOffboardMode() {
 }
 
 void MavrosAdapter::threadLoop() {
+  ros::Rate rosRate(20.0);
   this->mIsRunning = true;
   while (this->mRosNode->ok() && this->mIsRunning) {
     if (this->mIsEnabled) {
@@ -132,6 +132,6 @@ void MavrosAdapter::threadLoop() {
       }
     }
     ros::spinOnce();
-    this->mRosRate.sleep();
+    rosRate.sleep();
   }
 }

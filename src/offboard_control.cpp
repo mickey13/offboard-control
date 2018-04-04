@@ -13,10 +13,9 @@ static const float CLOSE_ENOUGH = 1.5;
 
 OffboardControl::OffboardControl(
   ros::NodeHandle &rosNode,
-  ros::Rate rosRate,
   std::string odometryTopic,
   float takeoffHeight
-) : mMavrosAdapter(rosNode, rosRate) {
+) : mMavrosAdapter(rosNode) {
   this->mRosNode = &rosNode;
   this->mEnableService = this->mRosNode->advertiseService("offboard_control/enable", &OffboardControl::enableService, this);
   this->mDisableService = this->mRosNode->advertiseService("offboard_control/disable", &OffboardControl::disableService, this);

@@ -16,7 +16,6 @@ class OffboardControl {
 public:
   OffboardControl(
     ros::NodeHandle &rosNode,
-    ros::Rate rosRate,
     std::string odometryTopic,
     float takeoffHeight
   );

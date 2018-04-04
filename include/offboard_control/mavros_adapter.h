@@ -14,10 +14,7 @@ class OffboardControl;
 
 class MavrosAdapter {
 public:
-  MavrosAdapter(
-    ros::NodeHandle &rosNode,
-    ros::Rate rosRate
-  );
+  MavrosAdapter(ros::NodeHandle &rosNode);
   ~MavrosAdapter();
   void initialize();
   bool arm(bool doArm);
@@ -42,7 +39,6 @@ private:
   void threadLoop();
 
   ros::NodeHandle* mRosNode;
-  ros::Rate mRosRate;
   ros::ServiceClient mArmingService;
   ros::ServiceClient mSetModeService;
   ros::Subscriber mStateSubscriber;

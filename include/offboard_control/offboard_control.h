@@ -33,6 +33,8 @@ private:
   };
 
   OffboardControl();
+  bool enableService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
+  bool disableService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
   bool takeoffService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
   bool landService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
   bool waypointService(offboard_control::Pose::Request& request, offboard_control::Pose::Response& response);
@@ -52,6 +54,8 @@ private:
   ros::ServiceServer mLandService;
   ros::ServiceServer mWaypointService;
   ros::ServiceServer mVelocityService;
+  ros::ServiceServer mEnableService;
+  ros::ServiceServer mDisableService;
   ros::Subscriber mOdometrySubscriber;
   ros::Publisher mEventPublisher;
   ros::Publisher mStatePublisher;

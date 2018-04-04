@@ -1,1 +1,2 @@
+bool enabled
 string mode

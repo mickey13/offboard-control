@@ -9,7 +9,7 @@
 static const unsigned int CONTROL_EVENT_TAKEOFF_COMPLETE = 0;
 static const unsigned int CONTROL_EVENT_LAND_COMPLETE = 1;
 static const unsigned int CONTROL_EVENT_WAYPOINT_COMPLETE = 2;
-static const float CLOSE_ENOUGH = 2.0;
+static const float CLOSE_ENOUGH = 1.5;
 
 OffboardControl::OffboardControl(
   ros::NodeHandle &rosNode,
@@ -18,6 +18,8 @@ OffboardControl::OffboardControl(
   float takeoffHeight
 ) : mMavrosAdapter(rosNode, rosRate) {
   this->mRosNode = &rosNode;
+  this->mEnableService = this->mRosNode->advertiseService("offboard_control/enable", &OffboardControl::enableService, this);
+  this->mDisableService = this->mRosNode->advertiseService("offboard_control/disable", &OffboardControl::disableService, this);
   this->mTakeoffService = this->mRosNode->advertiseService("offboard_control/takeoff", &OffboardControl::takeoffService, this);
   this->mLandService = this->mRosNode->advertiseService("offboard_control/land", &OffboardControl::landService, this);
   this->mWaypointService = this->mRosNode->advertiseService("offboard_control/waypoint", &OffboardControl::waypointService, this);
@@ -41,6 +43,36 @@ OffboardControl::~OffboardControl() {
 
 void OffboardControl::initializeMavros() {
   this->mMavrosAdapter.initialize();
+  this->mLocalWaypoint = this->mInitialOdometry.pose.pose;
+  this->mMavrosAdapter.waypoint(this->mLocalWaypoint);
+}
+
+bool OffboardControl::enableService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response) {
+  if (this->mMavrosAdapter.isEnabled()) {
+    response.success = false;
+    response.message = "Offboard control already enabled.";
+  }
+  else {
+    this->mLocalWaypoint = this->mInitialOdometry.pose.pose;
+    this->mMavrosAdapter.waypoint(this->mLocalWaypoint);
+    this->mMavrosAdapter.setEnabled(true);
+    response.success = true;
+    response.message = "Offboard control is now enabled.";
+  }
+  return true;
+}
+
+bool OffboardControl::disableService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response) {
+  if (this->mMavrosAdapter.isEnabled()) {
+    this->mMavrosAdapter.setEnabled(false);
+    response.success = true;
+    response.message = "Offboard control is now disabled.";
+  }
+  else {
+    response.success = false;
+    response.message = "Offboard control already disabled.";
+  }
+  return true;
 }
 
 bool OffboardControl::takeoffService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response) {
@@ -50,6 +82,7 @@ bool OffboardControl::takeoffService(std_srvs::Trigger::Request& request, std_sr
   }
   else if (this->mMavrosAdapter.arm(true)) {
     this->mMode = Mode::TAKEOFF;
+    ros::Duration(1.0).sleep();
     this->mLocalWaypoint = this->mInitialOdometry.pose.pose;
     this->mLocalWaypoint.position.z += this->mTakeoffHeight;
     this->mMavrosAdapter.waypoint(this->mLocalWaypoint);
@@ -109,10 +142,8 @@ bool OffboardControl::velocityService(offboard_control::Twist::Request& request,
 }
 
 void OffboardControl::odometryCallback(const nav_msgs::Odometry::ConstPtr& msg) {
-  if (this->mMavrosAdapter.isFcuArmed()) {
-    this->mCurrentOdometry = *msg;
-  }
-  else {
+  this->mCurrentOdometry = *msg;
+  if (!this->mMavrosAdapter.isFcuArmed() || !this->mMavrosAdapter.isEnabled()) {
     this->mInitialOdometry = *msg;
   }
   switch (this->mMode) {
@@ -163,6 +194,7 @@ void OffboardControl::publishEvent(unsigned int controlEvent) const {
 
 void OffboardControl::publishState() const {
   offboard_control::State msg;
+  msg.enabled = this->mMavrosAdapter.isEnabled();
   msg.mode = this->getStringFromEnum(this->mMode);
   this->mStatePublisher.publish(msg);
 }
@@ -179,11 +211,11 @@ void OffboardControl::threadLoop() {
 
 std::string OffboardControl::getStringFromEnum(Mode mode) const {
   switch (mode) {
-    case Mode::IDLE: return "idle";
-    case Mode::TAKEOFF: return "takeoff";
-    case Mode::LAND: return "land";
-    case Mode::WAYPOINT: return "waypoint";
-    case Mode::VELOCITY: return "velocity";
-    default: return "unknown";
+    case Mode::IDLE: return "IDLE";
+    case Mode::TAKEOFF: return "TAKEOFF";
+    case Mode::LAND: return "LAND";
+    case Mode::WAYPOINT: return "WAYPOINT";
+    case Mode::VELOCITY: return "VELOCITY";
+    default: return "UNKNOWN";
   }
 }

@@ -22,6 +22,7 @@ MavrosAdapter::MavrosAdapter(
   this->mLastRequest = ros::Time::now();
   this->mOffboardMode = OffboardMode::WAYPOINT;
   this->mIsRunning = false;
+  this->mIsEnabled = false;
   this->mMavrosThread = new std::thread(&MavrosAdapter::threadLoop, this);
 }
 
@@ -35,6 +36,7 @@ MavrosAdapter::~MavrosAdapter() {
 
 void MavrosAdapter::initialize() {
   this->connectToFlightController();
+  this->mIsEnabled = true;
 }
 
 bool MavrosAdapter::arm(bool doArm) {
@@ -53,12 +55,20 @@ void MavrosAdapter::velocity(geometry_msgs::Twist twist) {
   this->mOffboardMode = OffboardMode::VELOCITY;
 }
 
+void MavrosAdapter::setEnabled(bool isEnabled) {
+  this->mIsEnabled = isEnabled;
+}
+
 bool MavrosAdapter::isFcuConnected() const {
   return this->mFcuState.connected;
 }
 
 bool MavrosAdapter::isFcuArmed() const {
   return this->mFcuState.armed;
+}
+
+bool MavrosAdapter::isEnabled() const {
+  return this->mIsEnabled;
 }
 
 void MavrosAdapter::stateCallback(const mavros_msgs::State::ConstPtr& msg) {
@@ -108,16 +118,18 @@ void MavrosAdapter::configureOffboardMode() {
 void MavrosAdapter::threadLoop() {
   this->mIsRunning = true;
   while (this->mRosNode->ok() && this->mIsRunning) {
-    this->configureOffboardMode();
-    switch (this->mOffboardMode) {
-    case OffboardMode::WAYPOINT:
-      this->publishWaypoint();
-      break;
-    case OffboardMode::VELOCITY:
-      this->publishVelocity();
-      break;
-    default:
-      break;
+    if (this->mIsEnabled) {
+      this->configureOffboardMode();
+      switch (this->mOffboardMode) {
+      case OffboardMode::WAYPOINT:
+        this->publishWaypoint();
+        break;
+      case OffboardMode::VELOCITY:
+        this->publishVelocity();
+        break;
+      default:
+        break;
+      }
     }
     ros::spinOnce();
     this->mRosRate.sleep();

@@ -23,8 +23,10 @@ public:
   bool arm(bool doArm);
   void waypoint(geometry_msgs::Pose pose);
   void velocity(geometry_msgs::Twist twist);
+  void setEnabled(bool isEnabled);
   bool isFcuConnected() const;
   bool isFcuArmed() const;
+  bool isEnabled() const;
 
 private:
   enum OffboardMode {
@@ -50,6 +52,7 @@ private:
 
   std::thread* mMavrosThread;
   std::atomic<bool> mIsRunning;
+  std::atomic<bool> mIsEnabled;
 
   mavros_msgs::State mFcuState;
   geometry_msgs::Pose mOffboardWaypoint;

@@ -14,10 +14,13 @@ MavrosAdapter::MavrosAdapter(ros::NodeHandle &rosNode) {
   this->mArmingService = this->mRosNode->serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
   this->mSetModeService = this->mRosNode->serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
   this->mStateSubscriber = this->mRosNode->subscribe<mavros_msgs::State>("mavros/state", 1, &MavrosAdapter::stateCallback, this);
+  this->mRcInSubscriber = this->mRosNode->subscribe<mavros_msgs::RCIn>("mavros/rc/in", 1, &MavrosAdapter::rcInCallback, this);
   this->mWaypointPublisher = this->mRosNode->advertise<geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 1);
   this->mVelocityPublisher = this->mRosNode->advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 1);
   this->mLastRequest = ros::Time::now();
   this->mOffboardMode = OffboardMode::WAYPOINT;
+  this->mRcFlightModePulseValue = 0;
+  this->mIsRcInterrupt = false;
   this->mIsRunning = false;
   this->mIsEnabled = false;
   this->mMavrosThread = new std::thread(&MavrosAdapter::threadLoop, this);
@@ -72,6 +75,18 @@ void MavrosAdapter::stateCallback(const mavros_msgs::State::ConstPtr& msg) {
   this->mFcuState = *msg;
 }
 
+void MavrosAdapter::rcInCallback(const mavros_msgs::RCIn::ConstPtr& msg) {
+  if (msg->channels.size() >= 5) {
+    if (this->mRcFlightModePulseValue != 0 && abs(this->mRcFlightModePulseValue - msg->channels[4]) > 5) {
+      if (this->mIsEnabled) {
+        ROS_INFO("RC interrupt detected; disabling offboard control.");
+        this->mIsEnabled = false;
+      }
+    }
+    this->mRcFlightModePulseValue = msg->channels[4];
+  }
+}
+
 void MavrosAdapter::publishWaypoint() const {
   geometry_msgs::PoseStamped poseMsg;
   poseMsg.pose = this->mOffboardWaypoint;
@@ -99,8 +114,8 @@ void MavrosAdapter::connectToFlightController() {
 void MavrosAdapter::configureOffboardMode() {
   if (this->mFcuState.mode != PX4_MODE_OFFBOARD && (ros::Time::now() - this->mLastRequest > ros::Duration(REQUEST_INTERVAL))) {
     // Before entering offboard mode, you must have already started streaming setpoints otherwise the mode switch will be rejected.
-    ros::Rate rosRate(10.0);
-    for (int i = 50; ros::ok() && i > 0; --i) {
+    ros::Rate rosRate(20.0);
+    for (int i = 40; ros::ok() && i > 0; --i) {
       this->publishWaypoint();
       ros::spinOnce();
       rosRate.sleep();

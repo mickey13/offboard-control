@@ -3,6 +3,7 @@
 
 #include <ros/ros.h>
 #include <mavros_msgs/State.h>
+#include <mavros_msgs/RCIn.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <geometry_msgs/Pose.h>
@@ -32,6 +33,7 @@ private:
   };
   MavrosAdapter();
   void stateCallback(const mavros_msgs::State::ConstPtr& msg);
+  void rcInCallback(const mavros_msgs::RCIn::ConstPtr& msg);
   void publishWaypoint() const;
   void publishVelocity() const;
   void connectToFlightController();
@@ -42,6 +44,7 @@ private:
   ros::ServiceClient mArmingService;
   ros::ServiceClient mSetModeService;
   ros::Subscriber mStateSubscriber;
+  ros::Subscriber mRcInSubscriber;
   ros::Publisher mWaypointPublisher;
   ros::Publisher mVelocityPublisher;
   ros::Time mLastRequest;
@@ -54,6 +57,8 @@ private:
   geometry_msgs::Pose mOffboardWaypoint;
   geometry_msgs::Twist mOffboardVelocity;
   OffboardMode mOffboardMode;
+  unsigned int mRcFlightModePulseValue;
+  bool mIsRcInterrupt;
 };
 
 #endif

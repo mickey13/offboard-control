@@ -77,7 +77,7 @@ void MavrosAdapter::stateCallback(const mavros_msgs::State::ConstPtr& msg) {
 
 void MavrosAdapter::rcInCallback(const mavros_msgs::RCIn::ConstPtr& msg) {
   if (msg->channels.size() >= 5) {
-    if (this->mRcFlightModePulseValue != 0 && abs(this->mRcFlightModePulseValue - msg->channels[4]) > 5) {
+    if (this->mRcFlightModePulseValue != 0 && abs((int)this->mRcFlightModePulseValue - (int)msg->channels[4]) > 5) {
       if (this->mIsEnabled) {
         ROS_INFO("RC interrupt detected; disabling offboard control.");
         this->mIsEnabled = false;

@@ -4,6 +4,7 @@
 #include <tf/transform_datatypes.h>
 #include <geometry_msgs/Twist.h>
 #include <std_msgs/UInt16.h>
+#include <mavros_msgs/GlobalPositionTarget.h>
 #include <sstream>
 
 static const unsigned int CONTROL_EVENT_TAKEOFF_COMPLETE = 0;
@@ -23,6 +24,7 @@ OffboardControl::OffboardControl(
   this->mLandService = this->mRosNode->advertiseService("offboard_control/land", &OffboardControl::landService, this);
   this->mWaypointService = this->mRosNode->advertiseService("offboard_control/waypoint", &OffboardControl::waypointService, this);
   this->mVelocityService = this->mRosNode->advertiseService("offboard_control/velocity", &OffboardControl::velocityService, this);
+  this->mGpsWaypointService = this->mRosNode->advertiseService("offboard_control/gps/waypoint", &OffboardControl::gpsWaypointService, this);
   this->mOdometrySubscriber = this->mRosNode->subscribe<nav_msgs::Odometry>(odometryTopic, 1, &OffboardControl::odometryCallback, this);
   this->mEventPublisher = this->mRosNode->advertise<std_msgs::UInt16>("offboard_control/event", 1);
   this->mStatePublisher = this->mRosNode->advertise<offboard_control::State>("offboard_control/state", 1);
@@ -162,6 +164,30 @@ bool OffboardControl::velocityService(offboard_control::Twist::Request& request,
     velocity.angular.z = request.yaw;
     ss << "Moving with velocity: (" << velocity.linear.x << ", " << velocity.linear.y << ", " << velocity.linear.z << "), yaw: " << velocity.angular.z << ".";
     this->mMavrosAdapter.velocity(velocity);
+    response.success = true;
+    response.message = ss.str();
+  }
+  return true;
+}
+
+bool OffboardControl::gpsWaypointService(offboard_control::Gps::Request& request, offboard_control::Gps::Response& response) {
+  if (!this->mMavrosAdapter.isEnabled()) {
+    response.success = false;
+    response.message = "GPS waypoint command failed; offboard control is disabled.";
+  }
+  else if (!this->mMavrosAdapter.isFcuArmed()) {
+    response.success = false;
+    response.message = "GPS waypoint command failed; flight control unit is not armed.";
+  }
+  else {
+    std::stringstream ss;
+    ss << "Moving to GPS position: (" << request.latitude << ", " << request.longitude << ", " << request.altitude << "), yaw: " << request.yaw << ".";
+    mavros_msgs::GlobalPositionTarget globalPositionTarget;
+    globalPositionTarget.latitude = request.latitude;
+    globalPositionTarget.longitude = request.longitude;
+    globalPositionTarget.altitude = request.altitude;
+    globalPositionTarget.yaw = request.yaw;
+    this->mMavrosAdapter.gpsWaypoint(globalPositionTarget);
     response.success = true;
     response.message = ss.str();
   }

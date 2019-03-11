@@ -2,6 +2,7 @@
 #define OFFBOARD_CONTROL_H
 
 #include <offboard_control/mavros_adapter.h>
+#include <offboard_control/Gps.h>
 #include <offboard_control/Pose.h>
 #include <offboard_control/Twist.h>
 
@@ -38,6 +39,7 @@ private:
   bool landService(std_srvs::Trigger::Request& request, std_srvs::Trigger::Response& response);
   bool waypointService(offboard_control::Pose::Request& request, offboard_control::Pose::Response& response);
   bool velocityService(offboard_control::Twist::Request& request, offboard_control::Twist::Response& response);
+  bool gpsWaypointService(offboard_control::Gps::Request& request, offboard_control::Gps::Response& response);
   void odometryCallback(const nav_msgs::Odometry::ConstPtr& msg);
   void completeTakeoff();
   void completeLand();
@@ -53,6 +55,7 @@ private:
   ros::ServiceServer mLandService;
   ros::ServiceServer mWaypointService;
   ros::ServiceServer mVelocityService;
+  ros::ServiceServer mGpsWaypointService;
   ros::ServiceServer mEnableService;
   ros::ServiceServer mDisableService;
   ros::Subscriber mOdometrySubscriber;

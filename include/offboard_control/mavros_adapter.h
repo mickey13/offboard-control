@@ -4,6 +4,7 @@
 #include <ros/ros.h>
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/RCIn.h>
+#include <mavros_msgs/GlobalPositionTarget.h>
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <geometry_msgs/Pose.h>
@@ -21,6 +22,7 @@ public:
   bool arm(bool doArm);
   void waypoint(geometry_msgs::Pose pose);
   void velocity(geometry_msgs::Twist twist);
+  void gpsWaypoint(mavros_msgs::GlobalPositionTarget globalPositionTarget);
   void setEnabled(bool isEnabled);
   bool isFcuConnected() const;
   bool isFcuArmed() const;
@@ -29,13 +31,16 @@ public:
 private:
   enum OffboardMode {
     WAYPOINT,
-    VELOCITY
+    VELOCITY,
+    GPS_WAYPOINT
   };
   MavrosAdapter();
   void stateCallback(const mavros_msgs::State::ConstPtr& msg);
   void rcInCallback(const mavros_msgs::RCIn::ConstPtr& msg);
+  void gpsPositionCallback(const sensor_msgs::NavSatFix::ConstPtr& msg);
   void publishWaypoint() const;
   void publishVelocity() const;
+  void publishGpsWaypoint() const;
   void connectToFlightController();
   void configureOffboardMode();
   void threadLoop();
@@ -45,8 +50,10 @@ private:
   ros::ServiceClient mSetModeService;
   ros::Subscriber mStateSubscriber;
   ros::Subscriber mRcInSubscriber;
+  ros::Subscriber mGpsPositionSubscriber;
   ros::Publisher mWaypointPublisher;
   ros::Publisher mVelocityPublisher;
+  ros::Publisher mGpsWaypointPublisher;
   ros::Time mLastRequest;
 
   std::thread* mMavrosThread;
@@ -54,11 +61,12 @@ private:
   std::atomic<bool> mIsEnabled;
 
   mavros_msgs::State mFcuState;
+  mavros_msgs::GlobalPositionTarget mOffboardGpsWaypoint;
+  sensor_msgs::NavSatFix mCurrentGpsPosition;
   geometry_msgs::Pose mOffboardWaypoint;
   geometry_msgs::Twist mOffboardVelocity;
   OffboardMode mOffboardMode;
   unsigned int mRcFlightModePulseValue;
-  bool mIsRcInterrupt;
 };
 
 #endif

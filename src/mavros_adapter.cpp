@@ -3,6 +3,7 @@
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/CommandTOL.h>
 #include <mavros_msgs/SetMode.h>
+#include <mavros_msgs/GlobalPositionTarget.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TwistStamped.h>
 
@@ -15,12 +16,13 @@ MavrosAdapter::MavrosAdapter(ros::NodeHandle &rosNode) {
   this->mSetModeService = this->mRosNode->serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
   this->mStateSubscriber = this->mRosNode->subscribe<mavros_msgs::State>("mavros/state", 1, &MavrosAdapter::stateCallback, this);
   this->mRcInSubscriber = this->mRosNode->subscribe<mavros_msgs::RCIn>("mavros/rc/in", 1, &MavrosAdapter::rcInCallback, this);
+  this->mGpsPositionSubscriber = this->mRosNode->subscribe<sensor_msgs::NavSatFix>("mavros/global_position/global", 1, &MavrosAdapter::gpsPositionCallback, this);
   this->mWaypointPublisher = this->mRosNode->advertise<geometry_msgs::PoseStamped>("mavros/setpoint_position/local", 1);
   this->mVelocityPublisher = this->mRosNode->advertise<geometry_msgs::TwistStamped>("mavros/setpoint_velocity/cmd_vel", 1);
+  this->mGpsWaypointPublisher = this->mRosNode->advertise<mavros_msgs::GlobalPositionTarget>("mavros/setpoint_position/global", 1);
   this->mLastRequest = ros::Time::now();
   this->mOffboardMode = OffboardMode::WAYPOINT;
   this->mRcFlightModePulseValue = 0;
-  this->mIsRcInterrupt = false;
   this->mIsRunning = false;
   this->mIsEnabled = false;
   this->mMavrosThread = new std::thread(&MavrosAdapter::threadLoop, this);
@@ -55,6 +57,11 @@ void MavrosAdapter::velocity(geometry_msgs::Twist twist) {
   this->mOffboardMode = OffboardMode::VELOCITY;
 }
 
+void MavrosAdapter::gpsWaypoint(mavros_msgs::GlobalPositionTarget globalPositionTarget) {
+  this->mOffboardGpsWaypoint = globalPositionTarget;
+  this->mOffboardMode = OffboardMode::GPS_WAYPOINT;
+}
+
 void MavrosAdapter::setEnabled(bool isEnabled) {
   this->mIsEnabled = isEnabled;
 }
@@ -87,6 +94,10 @@ void MavrosAdapter::rcInCallback(const mavros_msgs::RCIn::ConstPtr& msg) {
   }
 }
 
+void MavrosAdapter::gpsPositionCallback(const sensor_msgs::NavSatFix::ConstPtr& msg) {
+  this->mCurrentGpsPosition = *msg;
+}
+
 void MavrosAdapter::publishWaypoint() const {
   geometry_msgs::PoseStamped poseMsg;
   poseMsg.pose = this->mOffboardWaypoint;
@@ -97,6 +108,16 @@ void MavrosAdapter::publishVelocity() const {
   geometry_msgs::TwistStamped twistMsg;
   twistMsg.twist = this->mOffboardVelocity;
   this->mVelocityPublisher.publish(twistMsg);
+}
+
+void MavrosAdapter::publishGpsWaypoint() const {
+  mavros_msgs::GlobalPositionTarget globalPositionTarget;
+  globalPositionTarget.header.stamp = ros::Time::now();
+  globalPositionTarget.latitude = this->mOffboardGpsWaypoint.latitude;
+  globalPositionTarget.longitude = this->mOffboardGpsWaypoint.longitude;
+  globalPositionTarget.altitude = this->mOffboardGpsWaypoint.altitude;
+  globalPositionTarget.yaw = this->mOffboardGpsWaypoint.yaw;
+  this->mGpsWaypointPublisher.publish(globalPositionTarget);
 }
 
 void MavrosAdapter::connectToFlightController() {
@@ -116,7 +137,7 @@ void MavrosAdapter::configureOffboardMode() {
     // Before entering offboard mode, you must have already started streaming setpoints otherwise the mode switch will be rejected.
     ros::Rate rosRate(20.0);
     for (int i = 40; ros::ok() && i > 0; --i) {
-      this->publishWaypoint();
+      this->publishGpsWaypoint();
       ros::spinOnce();
       rosRate.sleep();
     }
@@ -141,6 +162,9 @@ void MavrosAdapter::threadLoop() {
         break;
       case OffboardMode::VELOCITY:
         this->publishVelocity();
+        break;
+      case OffboardMode::GPS_WAYPOINT:
+        this->publishGpsWaypoint();
         break;
       default:
         break;
